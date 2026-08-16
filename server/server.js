@@ -10,60 +10,36 @@ dotenv.config();
 
 const app = express();
 
-/* =========================================
-   PORT
-   ========================================= */
-
-const PORT = process.env.PORT || 5000;
-
-/* =========================================
-   MIDDLEWARE
-   ========================================= */
-
 app.use(cors());
-
-app.use(
-    express.json({
-        limit: "10mb"
-    })
-);
+app.use(express.json({ limit: "10mb" }));
 
 /* =========================================
    PATH SETUP
-   ========================================= */
+========================================= */
 
 const __filename = fileURLToPath(
     import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const videosFolder = path.join(
-    __dirname,
-    "generated-videos"
-);
+const videosFolder = path.join(__dirname, "generated-videos");
 
 if (!fs.existsSync(videosFolder)) {
     fs.mkdirSync(videosFolder, {
-        recursive: true
+        recursive: true,
     });
 }
 
 /* =========================================
    GEMINI
-   ========================================= */
-
-if (!process.env.GEMINI_API_KEY) {
-    console.error(
-        "ERROR: GEMINI_API_KEY is missing."
-    );
-}
+========================================= */
 
 const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY
+    apiKey: process.env.GEMINI_API_KEY,
 });
 
 /* =========================================
    SERVE GENERATED VIDEOS
-   ========================================= */
+========================================= */
 
 app.use(
     "/generated-videos",
@@ -71,74 +47,68 @@ app.use(
 );
 
 /* =========================================
-   HOME / HEALTH CHECK
-   ========================================= */
+   HOME
+========================================= */
 
 app.get("/", (req, res) => {
     res.json({
         success: true,
-        message: "SmartPlate backend is running!"
+        message: "SmartPlate backend is running!",
     });
 });
 
 /* =========================================
    RECIPE GENERATION
-   ========================================= */
+========================================= */
 
-app.post(
-    "/api/recipe",
-    async(req, res) => {
+async function generateRecipe(req, res) {
+    try {
+        const {
+            ingredients,
+            excludeRecipe,
+        } = req.body;
 
-        try {
+        /* ---------- Validate input ---------- */
 
-            const {
-                ingredients,
-                excludeRecipe
-            } = req.body;
+        if (!ingredients ||
+            typeof ingredients !== "string" ||
+            !ingredients.trim()
+        ) {
+            return res.status(400).json({
+                error: "Ingredients are required.",
+            });
+        }
 
-            /* ---------- Validate ---------- */
+        /* =====================================
+           EXCLUDE PREVIOUS RECIPE
+        ===================================== */
 
-            if (!ingredients ||
-                typeof ingredients !== "string" ||
-                !ingredients.trim()
-            ) {
-                return res.status(400).json({
-                    error: "Ingredients are required."
-                });
-            }
+        let exclusionText = "";
 
-            /* =====================================
-               RECIPE VARIATION
-            ===================================== */
+        if (
+            excludeRecipe &&
+            typeof excludeRecipe === "string" &&
+            excludeRecipe.trim()
+        ) {
+            exclusionText = `
+IMPORTANT:
 
-            let variationInstruction = "";
-
-            if (excludeRecipe) {
-
-                variationInstruction = `
 The user already received this recipe:
 
 "${excludeRecipe}"
 
-IMPORTANT:
+DO NOT generate the same recipe again.
 
-Do NOT generate the same recipe again.
-
-Generate a genuinely different dish using the
-available ingredients.
-
-Change the preparation method, dish type, or recipe
-concept while still keeping the result realistic
-and suitable for a normal Indian household.
+Generate a DIFFERENT recipe using the available ingredients.
+Do not simply rename the same dish.
 `;
+        }
 
-            }
+        /* =====================================
+           SMARTPLATE PROMPT
+        ===================================== */
 
-            /* =====================================
-               INDIA-FIRST SMARTPLATE PROMPT
-            ===================================== */
-
-            const prompt = `
+        const prompt = `
 You are SmartPlate, an AI cooking assistant designed
 primarily for Indian households.
 
@@ -148,147 +118,75 @@ ingredients provided by the user.
 USER INGREDIENTS:
 ${ingredients}
 
-${variationInstruction}
+${exclusionText}
 
 IMPORTANT RECIPE RULES:
 
 1. Prioritize familiar Indian home-style recipes when
-   the ingredients naturally support Indian cooking.
+   the provided ingredients are commonly used in
+   Indian cooking.
 
-2. The recipe should feel like something a person
-   could realistically cook at home in India.
+2. Prefer simple everyday dishes that a typical Indian
+   household could realistically prepare.
 
-3. Prefer everyday dishes over restaurant-style,
-   gourmet, fancy, or unnecessarily complicated food.
+3. Avoid unnecessarily fancy, restaurant-style,
+   gourmet, fusion, or complicated recipes.
 
 4. Use as many of the user's provided ingredients as
    reasonably possible.
 
-5. Do not force ingredients together if the combination
-   would taste unnatural.
+5. Do NOT force every ingredient into the recipe if
+   doing so would make the dish unnatural.
 
-6. You may use a reasonable number of common Indian
-   pantry ingredients.
+6. You may add a small number of basic supporting
+   ingredients commonly available in an Indian kitchen,
+   such as salt, oil, turmeric, chilli powder, cumin,
+   mustard seeds, coriander, ginger, garlic, garam
+   masala, curry leaves, etc.
 
-COMMON INDIAN PANTRY INGREDIENTS MAY INCLUDE:
+7. Do not introduce expensive, unusual, or hard-to-find
+   ingredients unless genuinely necessary.
 
-- Salt
-- Red chilli powder
-- Green chilli
-- Turmeric powder
-- Coriander powder
-- Cumin seeds
-- Mustard seeds
-- Garam masala
-- Chaat masala
-- Black pepper
-- Ginger
-- Garlic
-- Curry leaves
-- Fresh coriander
-- Asafoetida / hing
-- Lemon
-- Tamarind
-- Ghee
-- Cooking oil
+8. Use appropriate Indian cooking techniques when
+   applicable, such as tempering, sautéing, pressure
+   cooking, boiling, roasting, shallow frying, or
+   simmering.
 
-7. IMPORTANT:
-Do NOT automatically add salt and black pepper
-to every recipe.
+9. If the ingredients clearly belong to another cuisine,
+   create a suitable recipe from that cuisine instead
+   of unnecessarily Indianizing it.
 
-Choose seasonings according to the actual dish.
+10. The recipe should be something a person could
+    realistically make at home.
 
-For example:
+11. Prefer recipes that are reasonably quick and easy.
 
-- Poha may use mustard seeds, curry leaves,
-  turmeric, green chilli and lemon.
+12. Give realistic quantities and cooking times.
 
-- Aloo curry may use cumin, turmeric, chilli powder
-  and coriander powder.
+13. Avoid unrealistic ingredient combinations.
 
-- Chaat-style dishes may use chaat masala,
-  cumin and chilli powder.
+14. The final recipe should be practical, tasty,
+    beginner-friendly, and suitable for a normal
+    home kitchen.
 
-- Tomato rice may use cumin, chilli, turmeric,
-  curry leaves or garam masala depending on the recipe.
+15. Prefer familiar regional or common Indian dishes
+    when the ingredient combination naturally supports them.
 
-- South Indian dishes may use mustard seeds,
-  curry leaves, urad dal, chana dal, etc. when
-  appropriate.
+16. Do not unnecessarily rename familiar Indian dishes
+    with fancy or artificial names.
 
-Only include spices that actually make sense
-for the selected recipe.
+17. If a simple dish such as upma, poha, pulao, dal,
+    sabzi, curry, rice dish, roti-based dish,
+    dosa-style preparation, or similar home-style
+    preparation naturally fits the ingredients,
+    prefer it over an invented fusion dish.
 
-8. Do not add every pantry ingredient.
+18. Use realistic Indian-style seasoning and quantities.
 
-Use only the spices and seasonings needed for
-the particular dish.
+19. Cooking instructions must be clear enough for a
+    beginner to follow.
 
-9. Prefer familiar Indian dishes such as:
-
-- Poha
-- Upma
-- Pulao
-- Fried rice
-- Tomato rice
-- Lemon rice
-- Khichdi
-- Dal
-- Dal rice
-- Aloo sabzi
-- Vegetable curry
-- Stir-fry
-- Paratha
-- Roti-based dishes
-- Chilla
-- Dosa-style dishes
-- Bread upma
-- Masala toast
-- Pakora
-- Chaat
-- Regional home-style dishes
-
-when the user's ingredients naturally support them.
-
-10. Do not invent fancy names for simple dishes.
-
-For example, prefer:
-
-"Aloo Tomato Curry"
-
-instead of:
-
-"Rustic Garden Potato Fusion Bowl".
-
-11. Use realistic Indian quantities.
-
-12. Use realistic cooking times.
-
-13. Keep the recipe beginner-friendly.
-
-14. Avoid expensive or unusual ingredients unless
-they are genuinely necessary.
-
-15. If the ingredients clearly belong to another
-cuisine, such as pasta with oregano and parmesan,
-create an appropriate recipe from that cuisine
-instead of unnecessarily Indianizing it.
-
-16. The recipe should be practical, tasty,
-affordable, and suitable for a normal home kitchen.
-
-17. If the user has only a few ingredients,
-do not create an unnecessarily complicated recipe.
-
-18. Use appropriate Indian cooking techniques such as
-tadka, sauteing, boiling, roasting, shallow frying,
-pressure cooking, or simmering when applicable.
-
-19. Cooking steps must be clear enough for a beginner
-to follow without additional explanation.
-
-20. If generating a variation, make sure the new recipe
-is meaningfully different from the previous recipe.
+20. Do not make the recipe unnecessarily complicated.
 
 Return ONLY valid JSON.
 
@@ -328,211 +226,158 @@ Do not include code fences.
 Do not include explanations outside the JSON.
 `;
 
-            /* =====================================
-               CALL GEMINI
-            ===================================== */
+        /* =====================================
+           CALL GEMINI
+        ===================================== */
 
-            const response =
-                await ai.models.generateContent({
+        const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+            },
+        });
 
-                    model: "gemini-3-flash-preview",
+        const recipeText = response.text;
 
-                    contents: prompt,
+        console.log("");
+        console.log("==============================");
+        console.log("RAW GEMINI RESPONSE:");
+        console.log(recipeText);
+        console.log("==============================");
+        console.log("");
 
-                    config: {
-                        responseMimeType: "application/json"
-                    }
+        /* =====================================
+           EMPTY RESPONSE
+        ===================================== */
 
-                });
+        if (!recipeText) {
+            return res.status(502).json({
+                error: "The AI returned an empty response.",
+            });
+        }
 
-            const recipeText =
-                response.text;
+        /* =====================================
+           PARSE JSON
+        ===================================== */
 
-            /* =====================================
-               DEBUG RESPONSE
-            ===================================== */
+        let recipe;
 
-            console.log("");
-            console.log(
-                "=============================="
+        try {
+            let cleanedText = recipeText.trim();
+
+            if (cleanedText.startsWith("```")) {
+                cleanedText = cleanedText
+                    .replace(/^```json\s*/i, "")
+                    .replace(/^```\s*/i, "")
+                    .replace(/\s*```$/i, "")
+                    .trim();
+            }
+
+            recipe = JSON.parse(cleanedText);
+
+        } catch (parseError) {
+            console.error(
+                "Recipe JSON parse error:",
+                parseError
             );
 
-            console.log(
-                "RAW GEMINI RESPONSE:"
-            );
-
-            console.log(
+            console.error(
+                "Gemini returned:",
                 recipeText
             );
 
-            console.log(
-                "=============================="
-            );
-
-            console.log("");
-
-            if (!recipeText) {
-
-                return res.status(502).json({
-                    error: "The AI returned an empty response."
-                });
-
-            }
-
-            /* =====================================
-               PARSE JSON
-            ===================================== */
-
-            let recipe;
-
-            try {
-
-                let cleanedText =
-                    recipeText.trim();
-
-                if (
-                    cleanedText.startsWith("```")
-                ) {
-
-                    cleanedText =
-                        cleanedText
-                        .replace(
-                            /^```json\s*/i,
-                            ""
-                        )
-                        .replace(
-                            /^```\s*/i,
-                            ""
-                        )
-                        .replace(
-                            /\s*```$/i,
-                            ""
-                        )
-                        .trim();
-
-                }
-
-                recipe =
-                    JSON.parse(
-                        cleanedText
-                    );
-
-            } catch (parseError) {
-
-                console.error(
-                    "Recipe JSON parse error:",
-                    parseError
-                );
-
-                console.error(
-                    "Gemini returned:",
-                    recipeText
-                );
-
-                return res.status(502).json({
-                    error: "The AI returned recipe data in an unexpected format."
-                });
-
-            }
-
-            /* =====================================
-               VALIDATE RECIPE
-            ===================================== */
-
-            if (!recipe ||
-                typeof recipe !== "object"
-            ) {
-
-                return res.status(502).json({
-                    error: "The AI returned an invalid recipe."
-                });
-
-            }
-
-            if (!recipe.name) {
-
-                return res.status(502).json({
-                    error: "The AI recipe is missing a name."
-                });
-
-            }
-
-            if (!recipe.description) {
-
-                return res.status(502).json({
-                    error: "The AI recipe is missing a description."
-                });
-
-            }
-
-            if (!Array.isArray(
-                    recipe.ingredients
-                )) {
-
-                return res.status(502).json({
-                    error: "The AI recipe is missing ingredients."
-                });
-
-            }
-
-            if (!Array.isArray(
-                    recipe.steps
-                )) {
-
-                return res.status(502).json({
-                    error: "The AI recipe is missing cooking steps."
-                });
-
-            }
-
-            if (!Array.isArray(
-                    recipe.swaps
-                )) {
-
-                recipe.swaps = [];
-
-            }
-
-            /* =====================================
-               SUCCESS
-            ===================================== */
-
-            console.log(
-                "Recipe generated successfully:",
-                recipe.name
-            );
-
-            res.json(recipe);
-
-        } catch (error) {
-
-            console.error(
-                "Gemini recipe error:",
-                error
-            );
-
-            let errorMessage =
-                "Unable to generate recipe right now.";
-
-            if (
-                error &&
-                error.message
-            ) {
-
-                errorMessage =
-                    error.message;
-
-            }
-
-            res.status(500).json({
-                error: errorMessage
+            return res.status(502).json({
+                error: "The AI returned recipe data in an unexpected format.",
             });
-
         }
 
+        /* =====================================
+           VALIDATE RECIPE
+        ===================================== */
+
+        if (!recipe ||
+            typeof recipe !== "object"
+        ) {
+            return res.status(502).json({
+                error: "The AI returned an invalid recipe.",
+            });
+        }
+
+        if (!recipe.name) {
+            return res.status(502).json({
+                error: "The AI recipe is missing a name.",
+            });
+        }
+
+        if (!recipe.description) {
+            return res.status(502).json({
+                error: "The AI recipe is missing a description.",
+            });
+        }
+
+        if (!Array.isArray(recipe.ingredients)) {
+            return res.status(502).json({
+                error: "The AI recipe is missing ingredients.",
+            });
+        }
+
+        if (!Array.isArray(recipe.steps)) {
+            return res.status(502).json({
+                error: "The AI recipe is missing cooking steps.",
+            });
+        }
+
+        if (!Array.isArray(recipe.swaps)) {
+            recipe.swaps = [];
+        }
+
+        /* =====================================
+           SUCCESS
+        ===================================== */
+
+        console.log(
+            `Recipe generated successfully: ${recipe.name}`
+        );
+
+        return res.json(recipe);
+
+    } catch (error) {
+        console.error(
+            "Gemini recipe error:",
+            error
+        );
+
+        let errorMessage =
+            "Unable to generate recipe right now.";
+
+        if (error && error.message) {
+            errorMessage = error.message;
+        }
+
+        return res.status(500).json({
+            error: errorMessage,
+        });
     }
+}
+
+/* =========================================
+   NORMAL RECIPE API
+========================================= */
+
+app.post(
+    "/api/recipe",
+    generateRecipe
 );
 
+/* =========================================
+   ANOTHER RECIPE API
+========================================= */
+
+app.post(
+    "/api/another-recipe",
+    generateRecipe
+);
 
 /* =========================================
    FULL RECIPE VIDEO GENERATION
@@ -541,46 +386,35 @@ Do not include explanations outside the JSON.
 app.post(
         "/api/generate-video",
         async(req, res) => {
-
             try {
+                const { recipe } = req.body;
 
-                const { recipe } =
-                req.body;
+                /* ---------- Validate ---------- */
 
                 if (!recipe) {
-
                     return res.status(400).json({
-                        error: "Recipe data is required."
+                        error: "Recipe data is required.",
                     });
-
                 }
 
                 if (!recipe.name ||
                     !Array.isArray(recipe.steps) ||
                     recipe.steps.length === 0
                 ) {
-
                     return res.status(400).json({
-                        error: "A valid recipe with cooking steps is required."
+                        error: "A valid recipe with cooking steps is required.",
                     });
-
                 }
 
                 /* =====================================
                    BUILD COOKING SEQUENCE
                 ===================================== */
 
-                const cookingSteps =
-                    recipe.steps
-                    .map(
-                        (step, index) => {
-
-                            return `${index + 1}. ${step.instruction}`;
-
-                        }
-                    )
+                const cookingSteps = recipe.steps
+                    .map((step, index) => {
+                        return `${index + 1}. ${step.instruction}`;
+                    })
                     .join("\n");
-
 
                 /* =====================================
                    VIDEO PROMPT
@@ -602,9 +436,7 @@ Recipe ingredients:
 
 ${recipe.ingredients
     .map((item) => {
-
         return `${item.quantity} ${item.name}`;
-
     })
     .join(", ")}
 
@@ -615,18 +447,18 @@ ${cookingSteps}
 Important visual requirements:
 
 - Show real human hands preparing the food.
-- Show the important cooking actions clearly.
+- Show important cooking actions clearly.
 - Use close-up shots of ingredients and utensils.
 - Show actions in the same order as the recipe.
 - Use realistic kitchen lighting.
-- Keep the cooking surface clean and easy to understand.
+- Keep the cooking surface clean.
 - Avoid complicated camera movements.
 - Avoid unnecessary people talking to the camera.
 - No recipe text or paragraphs on screen.
-- Focus on visual demonstration rather than written instructions.
+- Focus on visual demonstration.
 - End with the completed dish plated and ready to eat.
 - Make the result look appetizing and realistic.
-- Use smooth transitions between the major cooking actions.
+- Use smooth transitions between major cooking actions.
 - The video should feel like a short visual cooking tutorial.
 `;
 
@@ -635,10 +467,8 @@ Important visual requirements:
             );
 
             console.log(
-                "Recipe:",
-                recipe.name
+                `Recipe: ${recipe.name}`
             );
-
 
             /* =====================================
                START VIDEO GENERATION
@@ -646,87 +476,60 @@ Important visual requirements:
 
             let operation =
                 await ai.models.generateVideos({
-
                     model:
                         "veo-3.1-fast-generate-preview",
 
-                    prompt:
-                        videoPrompt,
+                    prompt: videoPrompt,
 
                     config: {
-                        aspectRatio:
-                            "16:9",
-
-                        resolution:
-                            "720p",
-
-                        numberOfVideos:
-                            1
-                    }
-
+                        aspectRatio: "16:9",
+                        resolution: "720p",
+                        numberOfVideos: 1,
+                    },
                 });
 
             console.log(
                 "Video generation started."
             );
 
-
             /* =====================================
                WAIT FOR VIDEO
             ===================================== */
 
-            while (
-                !operation.done
-            ) {
-
+            while (!operation.done) {
                 console.log(
                     "Video is still generating..."
                 );
 
-                await new Promise(
-                    (resolve) => {
-
-                        setTimeout(
-                            resolve,
-                            10000
-                        );
-
-                    }
-                );
+                await new Promise((resolve) => {
+                    setTimeout(resolve, 10000);
+                });
 
                 operation =
-                    await ai.operations.getVideosOperation(
-                        {
-                            operation:
-                                operation
-                        }
-                    );
-
+                    await ai.operations.getVideosOperation({
+                        operation,
+                    });
             }
 
             console.log(
                 "Video generation completed."
             );
 
-
             /* =====================================
                GET GENERATED VIDEO
             ===================================== */
 
             const generatedVideos =
-                operation.response &&
-                operation.response.generatedVideos;
+                operation.response?.generatedVideos;
 
             if (
                 !generatedVideos ||
                 generatedVideos.length === 0
             ) {
-
                 return res.status(500).json({
                     error:
-                        "Veo did not return a video."
+                        "Veo did not return a video.",
                 });
-
             }
 
             const generatedVideo =
@@ -736,14 +539,11 @@ Important visual requirements:
                 generatedVideo.video;
 
             if (!videoFile) {
-
                 return res.status(500).json({
                     error:
-                        "Generated video file was not returned."
+                        "Generated video file was not returned.",
                 });
-
             }
-
 
             /* =====================================
                SAVE VIDEO
@@ -752,14 +552,8 @@ Important visual requirements:
             const safeName =
                 recipe.name
                     .toLowerCase()
-                    .replace(
-                        /[^a-z0-9]+/g,
-                        "-"
-                    )
-                    .replace(
-                        /^-|-$/g,
-                        ""
-                    );
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-|-$/g, "");
 
             const fileName =
                 `${safeName}-${Date.now()}.mp4`;
@@ -775,43 +569,32 @@ Important visual requirements:
             );
 
             await ai.files.download({
-                file:
-                    videoFile,
-
-                downloadPath:
-                    filePath
+                file: videoFile,
+                downloadPath: filePath,
             });
 
             console.log(
-                "Video saved:",
-                fileName
+                `Video saved: ${fileName}`
             );
-
 
             /* =====================================
                SEND VIDEO URL
-               RENDER FIX
             ===================================== */
 
             const videoUrl =
-                `${req.protocol}://${req.get("host")}/generated-videos/${fileName}`;
+                `${
+                    process.env.PUBLIC_BASE_URL ||
+                    "http://localhost:5000"
+                }/generated-videos/${fileName}`;
 
-            res.json({
-
-                success:
-                    true,
-
-                videoUrl:
-
-                    videoUrl,
-
+            return res.json({
+                success: true,
+                videoUrl,
                 message:
-                    "Full recipe video generated successfully."
-
+                    "Full recipe video generated successfully.",
             });
 
         } catch (error) {
-
             console.error(
                 "Video generation error:",
                 error
@@ -820,44 +603,45 @@ Important visual requirements:
             let errorMessage =
                 "Unable to generate the recipe video.";
 
-            if (
-                error &&
-                error.message
-            ) {
-
-                errorMessage =
-                    error.message;
-
+            if (error && error.message) {
+                errorMessage = error.message;
             }
 
-            res.status(500).json({
-                error:
-                    errorMessage
+            return res.status(500).json({
+                error: errorMessage,
             });
-
         }
-
     }
 );
 
+/* =========================================
+   404 HANDLER
+========================================= */
+
+app.use((req, res) => {
+    return res.status(404).json({
+        error: "API endpoint not found.",
+        path: req.originalUrl,
+    });
+});
 
 /* =========================================
    START SERVER
-   ========================================= */
+========================================= */
+
+const PORT =
+    process.env.PORT || 5000;
 
 app.listen(
     PORT,
     "0.0.0.0",
     () => {
-
-        console.log("");
-
         console.log(
             "================================="
         );
 
         console.log(
-            "       SMARTPLATE BACKEND"
+            "        SMARTPLATE BACKEND"
         );
 
         console.log(
@@ -883,8 +667,5 @@ app.listen(
         console.log(
             "================================="
         );
-
-        console.log("");
-
     }
 );
