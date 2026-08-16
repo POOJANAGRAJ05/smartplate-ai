@@ -5,7 +5,7 @@ import "./App.css";
    API
 ========================================================= */
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "https://smartplate-ai-yfd5.onrender.com";
 
 
 /* =========================================================
