@@ -562,7 +562,7 @@ function HomePage({
 
           throw new Error(
             data?.error ||
-              "Unable to generate recipe."
+            "Unable to generate recipe."
           );
 
         }
@@ -581,7 +581,7 @@ function HomePage({
 
         setError(
           error?.message ||
-            "Unable to generate recipe right now."
+          "Unable to generate recipe right now."
         );
 
 
@@ -788,11 +788,10 @@ function HomePage({
 
 
                   <button
-                    className={`voice-button ${
-                      listening
+                    className={`voice-button ${listening
                         ? "recording"
                         : ""
-                    }`}
+                      }`}
                     onClick={
                       startVoiceInput
                     }
@@ -1451,10 +1450,10 @@ function RecipePage({
 
       setSaved(
         Array.isArray(savedList) &&
-          savedList.some(
-            (item) =>
-              item?.name === recipe?.name
-          )
+        savedList.some(
+          (item) =>
+            item?.name === recipe?.name
+        )
       );
 
     } catch {
@@ -1512,10 +1511,10 @@ function RecipePage({
     totalSteps === 0
       ? 0
       : Math.round(
-          (completedCount /
-            totalSteps) *
-            100
-        );
+        (completedCount /
+          totalSteps) *
+        100
+      );
 
 
   /* =======================================================
@@ -1653,7 +1652,7 @@ function RecipePage({
 
       const step =
         recipe?.steps?.[
-          currentStep
+        currentStep
         ];
 
 
@@ -1663,10 +1662,8 @@ function RecipePage({
 
 
       speakText(
-        `Step ${
-          currentStep + 1
-        }. ${
-          step.instruction
+        `Step ${currentStep + 1
+        }. ${step.instruction
         }`
       );
 
@@ -1912,10 +1909,10 @@ function RecipePage({
         const updatedList =
           Array.isArray(savedList)
             ? savedList.filter(
-                (item) =>
-                  item?.name !==
-                  recipe?.name
-              )
+              (item) =>
+                item?.name !==
+                recipe?.name
+            )
             : [];
 
         localStorage.setItem(
@@ -2003,7 +2000,7 @@ function RecipePage({
 
           throw new Error(
             data?.error ||
-              "Unable to generate video."
+            "Unable to generate video."
           );
 
         }
@@ -2035,7 +2032,7 @@ function RecipePage({
 
         setVideoError(
           error?.message ||
-            "Unable to generate the recipe video."
+          "Unable to generate the recipe video."
         );
 
 
@@ -2084,11 +2081,10 @@ function RecipePage({
 
 
           <button
-            className={`save-button ${
-              saved
+            className={`save-button ${saved
                 ? "saved"
                 : ""
-            }`}
+              }`}
             onClick={
               saved
                 ? removeSavedRecipe
@@ -2220,12 +2216,12 @@ function RecipePage({
                             "1",
                           cursor:
                             servings <=
-                            1
+                              1
                               ? "not-allowed"
                               : "pointer",
                           opacity:
                             servings <=
-                            1
+                              1
                               ? 0.45
                               : 1,
                         }}
@@ -2274,12 +2270,12 @@ function RecipePage({
                             "1",
                           cursor:
                             servings >=
-                            20
+                              20
                               ? "not-allowed"
                               : "pointer",
                           opacity:
                             servings >=
-                            20
+                              20
                               ? 0.45
                               : 1,
                         }}
@@ -2562,7 +2558,7 @@ function RecipePage({
                     Step{" "}
                     {Math.min(
                       currentStep +
-                        1,
+                      1,
                       totalSteps
                     )}{" "}
                     of{" "}
@@ -2642,7 +2638,7 @@ function RecipePage({
                 <span>
                   {Math.max(
                     totalSteps -
-                      completedCount,
+                    completedCount,
                     0
                   )}{" "}
                   remaining
@@ -2742,12 +2738,11 @@ function RecipePage({
 
                     <button
                       key={index}
-                      className={`step-dot ${
-                        currentStep ===
-                        index
+                      className={`step-dot ${currentStep ===
+                          index
                           ? "active"
                           : ""
-                      }`}
+                        }`}
                       onClick={() =>
                         selectStep(
                           index
@@ -2781,104 +2776,104 @@ function RecipePage({
             {recipe.steps?.length >
               0 && (
 
-              <div className="active-step">
+                <div className="active-step">
 
-                <div className="step-top">
+                  <div className="step-top">
 
-                  <span>
-                    STEP{" "}
-                    {currentStep +
-                      1}
-                    {" / "}
-                    {totalSteps}
-                  </span>
-
-
-                  {speaking && (
-
-                    <span className="reading-status">
-                      🔊 Reading...
+                    <span>
+                      STEP{" "}
+                      {currentStep +
+                        1}
+                      {" / "}
+                      {totalSteps}
                     </span>
 
-                  )}
 
-                </div>
+                    {speaking && (
 
+                      <span className="reading-status">
+                        🔊 Reading...
+                      </span>
 
-                <h3>
-                  {
-                    recipe.steps[
-                      currentStep
-                    ].instruction
-                  }
-                </h3>
+                    )}
+
+                  </div>
 
 
-                <div className="step-actions">
-
-                  <button
-                    className="read-button"
-                    onClick={
-                      readCurrentStep
+                  <h3>
+                    {
+                      recipe.steps[
+                        currentStep
+                      ].instruction
                     }
-                    type="button"
-                  >
-                    🔊 Read this step
-                  </button>
+                  </h3>
 
 
-                  <div className="step-navigation">
+                  <div className="step-actions">
 
                     <button
+                      className="read-button"
                       onClick={
-                        goPrevious
-                      }
-                      disabled={
-                        currentStep ===
-                        0
+                        readCurrentStep
                       }
                       type="button"
                     >
-                      ← Previous
+                      🔊 Read this step
                     </button>
 
 
-                    <button
-                      className="next-step"
-                      onClick={
-                        goNext
-                      }
-                      disabled={
-                        currentStep ===
-                          totalSteps -
-                            1 &&
-                        completedSteps.includes(
-                          currentStep
-                        )
-                      }
-                      type="button"
-                    >
-                      {currentStep ===
-                        totalSteps -
-                          1
+                    <div className="step-navigation">
 
-                        ? completedSteps.includes(
+                      <button
+                        onClick={
+                          goPrevious
+                        }
+                        disabled={
+                          currentStep ===
+                          0
+                        }
+                        type="button"
+                      >
+                        ← Previous
+                      </button>
+
+
+                      <button
+                        className="next-step"
+                        onClick={
+                          goNext
+                        }
+                        disabled={
+                          currentStep ===
+                          totalSteps -
+                          1 &&
+                          completedSteps.includes(
                             currentStep
                           )
-                          ? "✓ Completed"
-                          : "Finish Step ✓"
+                        }
+                        type="button"
+                      >
+                        {currentStep ===
+                          totalSteps -
+                          1
 
-                        : "Done & Next →"}
+                          ? completedSteps.includes(
+                            currentStep
+                          )
+                            ? "✓ Completed"
+                            : "Finish Step ✓"
 
-                    </button>
+                          : "Done & Next →"}
+
+                      </button>
+
+                    </div>
 
                   </div>
 
                 </div>
 
-              </div>
-
-            )}
+              )}
 
           </section>
 
@@ -3183,8 +3178,8 @@ function RecipePage({
                             swap.suggestions
                           )
                             ? swap.suggestions.join(
-                                " or "
-                              )
+                              " or "
+                            )
                             : swap.suggestions}
                         </strong>
 
@@ -3282,11 +3277,10 @@ function RecipePage({
                               "application/json",
                           },
 
-                          body:
-                            JSON.stringify({
-                              ingredients:
-                                ingredientList,
-                            }),
+                          body: JSON.stringify({
+                            ingredients: ingredientList,
+                            previousRecipe: recipe.name,
+                          }),
                         }
                       );
 
@@ -3301,7 +3295,7 @@ function RecipePage({
 
                       throw new Error(
                         data?.error ||
-                          "Unable to generate another recipe."
+                        "Unable to generate another recipe."
                       );
 
                     }
@@ -3325,7 +3319,7 @@ function RecipePage({
 
 
                   } catch (
-                    error
+                  error
                   ) {
 
                     console.error(
@@ -3336,7 +3330,7 @@ function RecipePage({
 
                     alert(
                       error?.message ||
-                        "Unable to generate another recipe right now."
+                      "Unable to generate another recipe right now."
                     );
 
 
