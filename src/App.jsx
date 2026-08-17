@@ -3279,7 +3279,7 @@ function RecipePage({
 
                           body: JSON.stringify({
                             ingredients: ingredientList,
-                            previousRecipe: recipe.name,
+                            excludeRecipe: recipe.name,
                           }),
                         }
                       );
