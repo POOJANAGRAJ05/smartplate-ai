@@ -470,24 +470,23 @@ function isQuotaError(error) {
     let message = "";
 
     if (error && error.message) {
-
         message = String(error.message);
-
     } else if (error) {
-
         message = String(error);
     }
 
-
     message = message.toLowerCase();
-
 
     return (
         message.includes("429") ||
         message.includes("resource_exhausted") ||
         message.includes("quota") ||
         message.includes("rate limit") ||
-        message.includes("exceeded your current quota")
+        message.includes("exceeded your current quota") ||
+        message.includes("503") ||
+        message.includes("unavailable") ||
+        (error && error.status === 503) ||
+        (error && error.code === 503)
     );
 }
 
